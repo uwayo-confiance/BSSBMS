@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/db');
+const { prisma } = require('../config/db');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -11,19 +11,16 @@ const authenticate = async (req, res, next) => {
     const token = header.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const [rows] = await pool.execute(
-      `SELECT u.id, u.full_name, u.username, u.email, u.is_active, r.name AS role
-       FROM users u
-       JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
-      [decoded.userId]
-    );
-
-    if (!rows.length || !rows[0].is_active) {
+    const user = await prisma.users.findUnique({
+      where: { id: Number(decoded.userId) },
+      select: { id: true, full_name: true, username: true, email: true, is_active: true, role_id: true },
+    });
+    if (!user || !user.is_active) {
       return res.status(401).json({ success: false, message: 'User not found or inactive' });
     }
 
-    req.user = rows[0];
+    const role = await prisma.roles.findUnique({ where: { id: user.role_id }, select: { name: true } });
+    req.user = { ...user, role: role.name };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

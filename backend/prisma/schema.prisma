@@ -1,0 +1,417 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum StockMovementType {
+  purchase
+  sale
+  adjustment
+  return
+  transfer
+  waste
+}
+
+enum PurchaseStatus {
+  draft
+  received
+  partial
+  cancelled
+}
+
+enum PurchasePaymentStatus {
+  unpaid
+  partial
+  paid
+}
+
+enum SupplierPaymentMethod {
+  cash
+  mobile_money
+  bank
+  cheque
+  other
+}
+
+enum DebtStatus {
+  open
+  partial
+  paid
+  written_off
+}
+
+enum CustomerPaymentMethod {
+  cash
+  mobile_money
+  bank
+  cheque
+  other
+}
+
+enum SaleStatus {
+  completed
+  held
+  cancelled
+  refunded
+}
+
+enum SalePaymentStatus {
+  paid
+  partial
+  credit
+}
+
+enum SalePaymentMethod {
+  cash
+  mobile_money
+  card
+  credit
+  mixed
+}
+
+enum PaymentMethodWithOther {
+  cash
+  mobile_money
+  card
+  credit
+  other
+}
+
+enum ExpensePaymentMethod {
+  cash
+  mobile_money
+  bank
+  other
+}
+
+enum CashSessionStatus {
+  open
+  closed
+}
+
+enum CashMovementType {
+  sale
+  purchase_payment
+  expense
+  customer_payment
+  supplier_payment
+  cash_in
+  cash_out
+  adjustment
+}
+
+model roles {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model users {
+  id            Int       @id @default(autoincrement())
+  role_id       Int
+  full_name     String    @db.VarChar(120)
+  username      String    @unique @db.VarChar(60)
+  email         String?   @unique @db.VarChar(120)
+  phone         String?   @db.VarChar(20)
+  password_hash String    @db.VarChar(255)
+  is_active     Int       @default(1) @db.TinyInt
+  last_login    DateTime? @db.Timestamp(0)
+  created_at    DateTime  @default(now()) @db.Timestamp(0)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model businesses {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(150)
+  address    String?  @db.Text
+  phone      String?  @db.VarChar(20)
+  email      String?  @db.VarChar(120)
+  tin        String?  @db.VarChar(50)
+  currency   String?  @default("RWF") @db.VarChar(5)
+  logo_url   String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model suppliers {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(150)
+  contact_person String?  @db.VarChar(100)
+  phone          String?  @db.VarChar(20)
+  email          String?  @db.VarChar(120)
+  address        String?  @db.Text
+  notes          String?  @db.Text
+  is_active      Int      @default(1) @db.TinyInt
+  created_at     DateTime @default(now()) @db.Timestamp(0)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model categories {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model units {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique @db.VarChar(50)
+  abbreviation String?  @db.VarChar(10)
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+}
+
+model unit_conversions {
+  id           Int     @id @default(autoincrement())
+  from_unit_id Int
+  to_unit_id   Int
+  factor       Decimal @db.Decimal(12, 4)
+
+  @@unique([from_unit_id, to_unit_id], map: "unique_conversion")
+}
+
+model products {
+  id               Int      @id @default(autoincrement())
+  category_id      Int?
+  name             String   @db.VarChar(150)
+  sku              String?  @unique @db.VarChar(50)
+  barcode          String?  @db.VarChar(50)
+  description      String?  @db.Text
+  base_unit_id     Int
+  purchase_unit_id Int?
+  sale_unit_id     Int?
+  cost_price       Decimal? @default(0) @db.Decimal(12, 2)
+  selling_price    Decimal? @default(0) @db.Decimal(12, 2)
+  min_stock_level  Decimal? @default(0) @db.Decimal(12, 3)
+  is_active        Int?     @default(1) @db.TinyInt
+  track_stock      Int?     @default(1) @db.TinyInt
+  image_url        String?  @db.VarChar(255)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model stock {
+  id                Int      @id @default(autoincrement())
+  product_id        Int      @unique
+  quantity          Decimal  @default(0) @db.Decimal(14, 3)
+  reserved_quantity Decimal? @default(0) @db.Decimal(14, 3)
+  last_updated      DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model stock_movements {
+  id             BigInt            @id @default(autoincrement())
+  product_id     Int
+  movement_type  StockMovementType
+  quantity       Decimal           @db.Decimal(14, 3)
+  reference_type String?           @db.VarChar(50)
+  reference_id   BigInt?
+  unit_cost      Decimal?          @db.Decimal(12, 2)
+  notes          String?           @db.Text
+  created_by     Int?
+  created_at     DateTime          @default(now()) @db.Timestamp(0)
+
+  @@index([product_id, created_at], map: "idx_product_date")
+  @@index([reference_type, reference_id], map: "idx_reference")
+}
+
+model purchases {
+  id              BigInt                 @id @default(autoincrement())
+  supplier_id     Int?
+  invoice_number  String?                @db.VarChar(80)
+  purchase_date   DateTime               @db.Date
+  status          PurchaseStatus?        @default(received)
+  subtotal        Decimal?               @default(0) @db.Decimal(14, 2)
+  tax_amount      Decimal?               @default(0) @db.Decimal(14, 2)
+  discount_amount Decimal?               @default(0) @db.Decimal(14, 2)
+  total_amount    Decimal?               @default(0) @db.Decimal(14, 2)
+  amount_paid     Decimal?               @default(0) @db.Decimal(14, 2)
+  balance         Decimal?               @default(0) @db.Decimal(14, 2)
+  payment_status  PurchasePaymentStatus? @default(unpaid)
+  notes           String?                @db.Text
+  created_by      Int?
+  created_at      DateTime               @default(now()) @db.Timestamp(0)
+  updated_at      DateTime               @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model purchase_items {
+  id            BigInt  @id @default(autoincrement())
+  purchase_id   BigInt
+  product_id    Int
+  quantity      Decimal @db.Decimal(12, 3)
+  unit_id       Int
+  quantity_base Decimal @db.Decimal(14, 3)
+  unit_cost     Decimal @db.Decimal(12, 2)
+  total_cost    Decimal @db.Decimal(14, 2)
+}
+
+model supplier_payments {
+  id             BigInt                 @id @default(autoincrement())
+  supplier_id    Int
+  purchase_id    BigInt?
+  amount         Decimal                @db.Decimal(14, 2)
+  payment_method SupplierPaymentMethod? @default(cash)
+  payment_date   DateTime               @db.Date
+  reference      String?                @db.VarChar(100)
+  notes          String?                @db.Text
+  created_by     Int?
+  created_at     DateTime               @default(now()) @db.Timestamp(0)
+}
+
+model customers {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(150)
+  phone        String?  @db.VarChar(20)
+  email        String?  @db.VarChar(120)
+  address      String?  @db.Text
+  credit_limit Decimal? @default(0) @db.Decimal(14, 2)
+  notes        String?  @db.Text
+  is_active    Int?     @default(1) @db.TinyInt
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model customer_debts {
+  id               BigInt      @id @default(autoincrement())
+  customer_id      Int
+  sale_id          BigInt?
+  original_amount  Decimal     @db.Decimal(14, 2)
+  remaining_amount Decimal     @db.Decimal(14, 2)
+  status           DebtStatus? @default(open)
+  due_date         DateTime?   @db.Date
+  notes            String?     @db.Text
+  created_at       DateTime    @default(now()) @db.Timestamp(0)
+  updated_at       DateTime    @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model customer_payments {
+  id             BigInt                 @id @default(autoincrement())
+  customer_id    Int
+  debt_id        BigInt?
+  amount         Decimal                @db.Decimal(14, 2)
+  payment_method CustomerPaymentMethod? @default(cash)
+  payment_date   DateTime               @db.Date
+  reference      String?                @db.VarChar(100)
+  notes          String?                @db.Text
+  created_by     Int?
+  created_at     DateTime               @default(now()) @db.Timestamp(0)
+}
+
+model sales {
+  id              BigInt             @id @default(autoincrement())
+  receipt_number  String             @unique @db.VarChar(30)
+  customer_id     Int?
+  sale_date       DateTime           @default(now()) @db.DateTime(0)
+  status          SaleStatus?        @default(completed)
+  subtotal        Decimal?           @default(0) @db.Decimal(14, 2)
+  tax_amount      Decimal?           @default(0) @db.Decimal(14, 2)
+  discount_amount Decimal?           @default(0) @db.Decimal(14, 2)
+  total_amount    Decimal?           @default(0) @db.Decimal(14, 2)
+  amount_paid     Decimal?           @default(0) @db.Decimal(14, 2)
+  change_given    Decimal?           @default(0) @db.Decimal(14, 2)
+  payment_method  SalePaymentMethod? @default(cash)
+  payment_status  SalePaymentStatus? @default(paid)
+  notes           String?            @db.Text
+  created_by      Int?
+  created_at      DateTime           @default(now()) @db.Timestamp(0)
+  updated_at      DateTime           @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([sale_date], map: "idx_sale_date")
+  @@index([receipt_number], map: "idx_receipt")
+}
+
+model sale_items {
+  id            BigInt   @id @default(autoincrement())
+  sale_id       BigInt
+  product_id    Int
+  quantity      Decimal  @db.Decimal(12, 3)
+  unit_id       Int
+  quantity_base Decimal  @db.Decimal(14, 3)
+  unit_price    Decimal  @db.Decimal(12, 2)
+  discount      Decimal? @default(0) @db.Decimal(12, 2)
+  total_price   Decimal  @db.Decimal(14, 2)
+  cost_at_sale  Decimal? @db.Decimal(12, 2)
+}
+
+model sale_payments {
+  id             BigInt                 @id @default(autoincrement())
+  sale_id        BigInt
+  payment_method PaymentMethodWithOther
+  amount         Decimal                @db.Decimal(14, 2)
+  reference      String?                @db.VarChar(100)
+  created_at     DateTime               @default(now()) @db.Timestamp(0)
+}
+
+model expense_categories {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model expenses {
+  id             BigInt                @id @default(autoincrement())
+  category_id    Int?
+  title          String                @db.VarChar(200)
+  amount         Decimal               @db.Decimal(14, 2)
+  expense_date   DateTime              @db.Date
+  payment_method ExpensePaymentMethod? @default(cash)
+  reference      String?               @db.VarChar(100)
+  notes          String?               @db.Text
+  created_by     Int?
+  created_at     DateTime              @default(now()) @db.Timestamp(0)
+
+  @@index([expense_date], map: "idx_expense_date")
+}
+
+model cash_registers {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  is_active  Int?     @default(1) @db.TinyInt
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model cash_sessions {
+  id              BigInt             @id @default(autoincrement())
+  register_id     Int
+  opened_by       Int
+  closed_by       Int?
+  opening_balance Decimal            @default(0) @db.Decimal(14, 2)
+  closing_balance Decimal?           @db.Decimal(14, 2)
+  expected_cash   Decimal?           @db.Decimal(14, 2)
+  actual_cash     Decimal?           @db.Decimal(14, 2)
+  difference      Decimal?           @db.Decimal(14, 2)
+  status          CashSessionStatus? @default(open)
+  opened_at       DateTime           @default(now()) @db.Timestamp(0)
+  closed_at       DateTime?          @db.Timestamp(0)
+  notes           String?            @db.Text
+}
+
+model cash_movements {
+  id             BigInt           @id @default(autoincrement())
+  session_id     BigInt?
+  movement_type  CashMovementType
+  amount         Decimal          @db.Decimal(14, 2)
+  reference_type String?          @db.VarChar(50)
+  reference_id   BigInt?
+  notes          String?          @db.Text
+  created_by     Int?
+  created_at     DateTime         @default(now()) @db.Timestamp(0)
+}
+
+model audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  user_id     Int?
+  action      String   @db.VarChar(100)
+  entity_type String?  @db.VarChar(50)
+  entity_id   BigInt?
+  old_values  Json?
+  new_values  Json?
+  ip_address  String?  @db.VarChar(45)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([entity_type, entity_id], map: "idx_audit_entity")
+  @@index([user_id, created_at], map: "idx_audit_user_date")
+}

@@ -222,6 +222,36 @@ body {
   #report-content .overflow-x-auto {
     overflow: visible !important;
   }
+
+  #sale-receipt,
+  #sale-receipt * {
+    visibility: visible !important;
+  }
+
+  #sale-receipt {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    background: white !important;
+  }
+
+  #receipt-paper {
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0 auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #sale-receipt .no-print {
+    display: none !important;
+  }
 }
 
 /* Custom scrollbar */

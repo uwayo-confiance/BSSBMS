@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/db');
+const { prisma } = require('../config/db');
 
 const login = async (req, res) => {
   try {
@@ -10,34 +10,38 @@ const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
 
-    const [users] = await pool.execute(
-      `SELECT u.id, u.full_name, u.username, u.email, u.password_hash, u.is_active, r.name AS role
-       FROM users u
-       JOIN roles r ON u.role_id = r.id
-       WHERE u.username = ? OR u.email = ?`,
-      [username, username]
-    );
+    const user = await prisma.users.findFirst({
+      where: { OR: [{ username }, { email: username }] },
+      select: {
+        id: true,
+        full_name: true,
+        username: true,
+        email: true,
+        password_hash: true,
+        is_active: true,
+        role_id: true,
+      },
+    });
 
-    if (!users.length) {
+    if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    const user = users[0];
 
     if (!user.is_active) {
       return res.status(401).json({ success: false, message: 'Account is deactivated' });
     }
 
+    const role = await prisma.roles.findUnique({ where: { id: user.role_id }, select: { name: true } });
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Update last login
-    await pool.execute(`UPDATE users SET last_login = NOW() WHERE id = ?`, [user.id]);
+    await prisma.users.update({ where: { id: user.id }, data: { last_login: new Date() } });
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: role.name },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -52,7 +56,7 @@ const login = async (req, res) => {
           full_name: user.full_name,
           username: user.username,
           email: user.email,
-          role: user.role,
+          role: role.name,
         },
       },
     });
@@ -79,18 +83,21 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
     }
 
-    const [users] = await pool.execute(
-      `SELECT password_hash FROM users WHERE id = ?`,
-      [req.user.id]
-    );
+    const user = await prisma.users.findUnique({
+      where: { id: req.user.id },
+      select: { password_hash: true },
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
-    const match = await bcrypt.compare(currentPassword, users[0].password_hash);
+    const match = await bcrypt.compare(currentPassword, user.password_hash);
     if (!match) {
       return res.status(400).json({ success: false, message: 'Current password is incorrect' });
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await pool.execute(`UPDATE users SET password_hash = ? WHERE id = ?`, [hash, req.user.id]);
+    await prisma.users.update({ where: { id: req.user.id }, data: { password_hash: hash } });
 
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (err) {

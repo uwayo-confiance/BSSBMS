@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
@@ -11,8 +12,9 @@ import Purchases from './pages/Purchases';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 
-function PrivateRoute({ children }) {
+function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -20,33 +22,28 @@ function PrivateRoute({ children }) {
       </div>
     );
   }
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-}
-
-function AppRoutes() {
-  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <Layout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="pos" element={<POS />} />
-        <Route path="products" element={<Products />} />
-        <Route path="stock" element={<Stock />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="purchases" element={<Purchases />} />
-        <Route path="expenses" element={<Expenses />} />
-        <Route path="reports" element={<Reports />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {isAuthenticated ? (
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="pos" element={<POS />} />
+          <Route path="products" element={<Products />} />
+          <Route path="stock" element={<Stock />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="purchases" element={<Purchases />} />
+          <Route path="expenses" element={<Expenses />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      ) : (
+        <>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </>
+      )}
     </Routes>
   );
 }

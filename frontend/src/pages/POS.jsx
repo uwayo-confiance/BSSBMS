@@ -7,6 +7,10 @@ function formatRWF(n) {
   return new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n || 0);
 }
 
+function getReceiptTimestamp() {
+  return new Date().toISOString();
+}
+
 const emptyProductForm = {
   name: '',
   sku: '',
@@ -173,13 +177,17 @@ export default function POS() {
   );
   const subtotal = cart.reduce((s, i) => s + i.total_price, 0);
   const total = Math.max(0, subtotal - Number(discount || 0));
-  const paid = Number(amountPaid || total);
+  const paid = paymentMethod === 'credit' ? 0 : Number(amountPaid || total);
   const change = Math.max(0, paid - total);
 
   const completeSale = async () => {
     if (cart.length === 0) return;
     if (invalidQuantityDraft) {
       setError('Enter a quantity greater than zero for each product.');
+      return;
+    }
+    if (paymentMethod === 'credit' && !selectedCustomer) {
+      setError('Select a customer before completing a credit sale.');
       return;
     }
     setProcessing(true);
@@ -200,15 +208,25 @@ export default function POS() {
         payment_status: paid >= total ? 'paid' : selectedCustomer ? 'credit' : 'partial',
       };
       const res = await api.post('/sales', payload);
-      setLastSale(res.data.data);
+      setLastSale({
+        ...res.data.data,
+        items: cart.map((item) => ({ ...item })),
+        customer_name: selectedCustomer?.name || 'Walk-in Customer',
+        cashier_name: user?.full_name || '',
+        payment_method: paymentMethod,
+        subtotal,
+        discount_amount: Number(discount || 0),
+        balance_due: Math.max(0, total - Number(res.data.data.amount_paid ?? paid)),
+        completed_at: getReceiptTimestamp(),
+      });
       setCart([]);
       setQuantityDraft({});
       setDiscount(0);
       setAmountPaid('');
       setSelectedCustomer(null);
-      // Refresh products stock
-      const prods = await api.get('/products?active=true');
-      setProducts(prods.data.data || []);
+      api.get('/products?active=true')
+        .then((prods) => setProducts(prods.data.data || []))
+        .catch(() => setProductNotice('Sale completed, but stock could not refresh. Reload the POS to see updated stock.'));
     } catch (err) {
       setError(err.response?.data?.message || 'Sale failed');
     } finally {
@@ -537,25 +555,77 @@ export default function POS() {
         </div>
       )}
 
-      {/* Success modal */}
+      {/* Sale receipt */}
       {lastSale && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl">
-            <div className="w-14 h-14 rounded-full bg-green-100 text-bms-success flex items-center justify-center mx-auto mb-4">
-              <Check size={28} />
+        <div id="sale-receipt" className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center overflow-y-auto p-4">
+          <div id="receipt-paper" className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <div className="no-print text-center">
+              <div className="w-14 h-14 rounded-full bg-green-100 text-bms-success flex items-center justify-center mx-auto mb-4">
+                <Check size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">Sale Complete</h3>
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Sale Complete</h3>
-            <p className="text-sm text-slate-500 mt-1">Receipt: {lastSale.receipt_number}</p>
-            <p className="text-2xl font-bold text-bms-primary mt-3">{formatRWF(lastSale.total_amount)}</p>
-            {lastSale.change_given > 0 && (
-              <p className="text-sm text-slate-500 mt-1">Change: {formatRWF(lastSale.change_given)}</p>
-            )}
-            <button
-              onClick={() => setLastSale(null)}
-              className="mt-6 w-full bg-bms-dark text-white py-2.5 rounded-lg font-medium hover:bg-slate-800 transition"
-            >
-              New Sale
-            </button>
+            <div className="text-center border-b border-dashed border-slate-300 pb-4">
+              <h2 className="text-xl font-bold text-slate-800">BSSBMS</h2>
+              <p className="text-xs font-semibold tracking-widest text-slate-500">FACTURE / SALES INVOICE</p>
+              <p className="mt-3 text-xs text-slate-500">Invoice No.</p>
+              <p className="text-sm font-semibold text-slate-700">{lastSale.receipt_number}</p>
+              <p className="text-xs text-slate-500">{new Date(lastSale.completed_at).toLocaleString()}</p>
+            </div>
+
+            <div className="space-y-1 border-b border-dashed border-slate-300 py-3 text-xs">
+              <p className="flex justify-between gap-3"><span className="text-slate-500">Customer</span><span className="text-right font-medium">{lastSale.customer_name}</span></p>
+              {lastSale.cashier_name && <p className="flex justify-between gap-3"><span className="text-slate-500">Served by</span><span className="text-right font-medium">{lastSale.cashier_name}</span></p>}
+              <p className="flex justify-between gap-3"><span className="text-slate-500">Payment</span><span className="text-right font-medium capitalize">{lastSale.payment_method.replace('_', ' ')}</span></p>
+            </div>
+
+            <div className="border-b border-dashed border-slate-300 py-3">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-slate-500">
+                    <th className="pb-2 font-medium">Item</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                    <th className="pb-2 text-right font-medium">Price</th>
+                    <th className="pb-2 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {lastSale.items.map((item) => (
+                    <tr key={item.product_id}>
+                      <td className="py-2 pr-2 font-medium text-slate-700">{item.name}</td>
+                      <td className="py-2 text-right text-slate-600">{item.quantity}</td>
+                      <td className="py-2 text-right text-slate-600">{formatRWF(item.unit_price)}</td>
+                      <td className="py-2 text-right font-medium text-slate-700">{formatRWF(item.total_price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-2 py-3 text-sm">
+              <p className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{formatRWF(lastSale.subtotal)}</span></p>
+              {Number(lastSale.discount_amount) > 0 && <p className="flex justify-between"><span className="text-slate-500">Discount</span><span>-{formatRWF(lastSale.discount_amount)}</span></p>}
+              <p className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-800"><span>Total</span><span>{formatRWF(lastSale.total_amount)}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Amount paid</span><span>{formatRWF(lastSale.amount_paid)}</span></p>
+              {Number(lastSale.balance_due) > 0 && <p className="flex justify-between font-semibold text-rose-600"><span>Balance due</span><span>{formatRWF(lastSale.balance_due)}</span></p>}
+              {Number(lastSale.change_given) > 0 && <p className="flex justify-between font-semibold text-bms-success"><span>Change</span><span>{formatRWF(lastSale.change_given)}</span></p>}
+            </div>
+            <p className="border-t border-dashed border-slate-300 pt-3 text-center text-xs text-slate-500">Thank you for your purchase!</p>
+
+            <div className="no-print mt-5 flex gap-3">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 rounded-lg bg-bms-primary py-2.5 font-medium text-white transition hover:bg-bms-primary-hover"
+              >
+                Print Invoice
+              </button>
+              <button
+                onClick={() => setLastSale(null)}
+                className="flex-1 rounded-lg bg-bms-dark py-2.5 font-medium text-white transition hover:bg-slate-800"
+              >
+                New Sale
+              </button>
+            </div>
           </div>
         </div>
       )}

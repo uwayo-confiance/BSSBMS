@@ -1,24 +1,28 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/db');
+const { prisma } = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.get('/registers', authenticate, async (req, res) => {
-  const [rows] = await pool.execute(`SELECT * FROM cash_registers WHERE is_active=1`);
-  res.json({ success: true, data: rows });
+  const data = await prisma.cash_registers.findMany({ where: { is_active: 1 } });
+  res.json({ success: true, data });
 });
 
 router.get('/sessions/current', authenticate, async (req, res) => {
   try {
-    const [rows] = await pool.execute(
-      `SELECT cs.*, cr.name AS register_name, u.full_name AS opened_by_name
-       FROM cash_sessions cs
-       JOIN cash_registers cr ON cs.register_id = cr.id
-       JOIN users u ON cs.opened_by = u.id
-       WHERE cs.status = 'open'
-       ORDER BY cs.opened_at DESC LIMIT 1`
-    );
-    res.json({ success: true, data: rows[0] || null });
+    const session = await prisma.cash_sessions.findFirst({
+      where: { status: 'open' },
+      orderBy: { opened_at: 'desc' },
+    });
+    if (!session) return res.json({ success: true, data: null });
+    const [register, user] = await Promise.all([
+      prisma.cash_registers.findUnique({ where: { id: session.register_id }, select: { name: true } }),
+      prisma.users.findUnique({ where: { id: session.opened_by }, select: { full_name: true } }),
+    ]);
+    res.json({
+      success: true,
+      data: { ...session, register_name: register?.name ?? null, opened_by_name: user?.full_name ?? null },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch session' });
   }
@@ -27,13 +31,21 @@ router.get('/sessions/current', authenticate, async (req, res) => {
 router.post('/sessions/open', authenticate, authorize('admin', 'manager', 'cashier'), async (req, res) => {
   try {
     const { register_id, opening_balance } = req.body;
-    // Close any existing open session first (simplified)
-    await pool.execute(`UPDATE cash_sessions SET status='closed', closed_at=NOW() WHERE status='open'`);
-    const [result] = await pool.execute(
-      `INSERT INTO cash_sessions (register_id, opened_by, opening_balance) VALUES (?, ?, ?)`,
-      [register_id || 1, req.user.id, opening_balance || 0]
-    );
-    res.status(201).json({ success: true, data: { id: result.insertId } });
+    const session = await prisma.$transaction(async (tx) => {
+      await tx.cash_sessions.updateMany({
+        where: { status: 'open' },
+        data: { status: 'closed', closed_at: new Date() },
+      });
+      return tx.cash_sessions.create({
+        data: {
+          register_id: Number(register_id || 1),
+          opened_by: req.user.id,
+          opening_balance: opening_balance || 0,
+        },
+        select: { id: true },
+      });
+    });
+    res.status(201).json({ success: true, data: session });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to open session' });
   }
@@ -41,19 +53,26 @@ router.post('/sessions/open', authenticate, authorize('admin', 'manager', 'cashi
 
 router.post('/sessions/:id/close', authenticate, authorize('admin', 'manager', 'cashier'), async (req, res) => {
   try {
+    const sessionId = BigInt(req.params.id);
     const { actual_cash, notes } = req.body;
-    // Simple expected = opening + cash sales (simplified for MVP)
-    const [session] = await pool.execute(`SELECT * FROM cash_sessions WHERE id = ?`, [req.params.id]);
-    if (!session.length || session[0].status !== 'open') {
+    const session = await prisma.cash_sessions.findUnique({ where: { id: sessionId } });
+    if (!session || session.status !== 'open') {
       return res.status(400).json({ success: false, message: 'Session not open' });
     }
-    const expected = Number(session[0].opening_balance); // real calc would sum movements
+    const expected = Number(session.opening_balance);
     const actual = Number(actual_cash || 0);
-    await pool.execute(
-      `UPDATE cash_sessions SET status='closed', closed_by=?, closed_at=NOW(),
-       expected_cash=?, actual_cash=?, difference=?, notes=? WHERE id=?`,
-      [req.user.id, expected, actual, actual - expected, notes || null, req.params.id]
-    );
+    await prisma.cash_sessions.update({
+      where: { id: sessionId },
+      data: {
+        status: 'closed',
+        closed_by: req.user.id,
+        closed_at: new Date(),
+        expected_cash: expected,
+        actual_cash: actual,
+        difference: actual - expected,
+        notes: notes || null,
+      },
+    });
     res.json({ success: true, message: 'Session closed' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to close session' });

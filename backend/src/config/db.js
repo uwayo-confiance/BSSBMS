@@ -1,26 +1,22 @@
-const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'bssbms',
-  waitForConnections: true,
-  connectionLimit: 20,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  timezone: '+02:00', // CAT (Central Africa Time)
-});
+if (!process.env.DATABASE_URL) {
+  const user = encodeURIComponent(process.env.DB_USER || 'root');
+  const password = encodeURIComponent(process.env.DB_PASSWORD || '');
+  const host = process.env.DB_HOST || 'localhost';
+  const port = process.env.DB_PORT || 3306;
+  const database = encodeURIComponent(process.env.DB_NAME || 'bssbms');
+  process.env.DATABASE_URL = `mysql://${user}:${password}@${host}:${port}/${database}`;
+}
 
-// Test connection helper
+const prisma = new PrismaClient();
+
 async function testConnection() {
   try {
-    const conn = await pool.getConnection();
-    console.log('✓ MySQL connected successfully');
-    conn.release();
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('✓ MySQL connected successfully through Prisma');
     return true;
   } catch (err) {
     console.error('✗ MySQL connection failed:', err.message);
@@ -28,4 +24,4 @@ async function testConnection() {
   }
 }
 
-module.exports = { pool, testConnection };
+module.exports = { prisma, testConnection };

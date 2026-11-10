@@ -8,6 +8,8 @@ const { testConnection } = require('./config/db');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.set('json replacer', (key, value) => (typeof value === 'bigint' ? Number(value) : value));
+
 // Security
 app.use(helmet());
 app.use(cors({
