@@ -1,0 +1,43 @@
+CREATE TABLE `sale_refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `sale_id` BIGINT NOT NULL,
+  `refund_number` VARCHAR(40) NOT NULL,
+  `total_amount` DECIMAL(14,2) NOT NULL,
+  `refund_method` VARCHAR(30) NOT NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+  `reason` VARCHAR(255) NOT NULL,
+  `original_reference` VARCHAR(100) NULL,
+  `external_reference` VARCHAR(100) NULL,
+  `idempotency_key` VARCHAR(100) NOT NULL,
+  `request_hash` CHAR(64) NOT NULL,
+  `requested_by` INT NULL,
+  `approved_by` INT NULL,
+  `confirmed_by` INT NULL,
+  `created_at` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `confirmed_at` TIMESTAMP(0) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `sale_refunds_refund_number_key` (`refund_number`),
+  UNIQUE INDEX `sale_refunds_idempotency_key_key` (`idempotency_key`),
+  INDEX `idx_sale_refund_sale_date` (`sale_id`, `created_at`),
+  INDEX `idx_sale_refund_status_date` (`status`, `created_at`),
+  CONSTRAINT `sale_refunds_sale_id_fkey` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `sale_refund_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `refund_id` BIGINT NOT NULL,
+  `sale_item_id` BIGINT NOT NULL,
+  `product_id` INT NOT NULL,
+  `product_name_snapshot` VARCHAR(150) NOT NULL,
+  `quantity` DECIMAL(12,3) NOT NULL,
+  `quantity_base` DECIMAL(14,3) NOT NULL,
+  `disposition` VARCHAR(20) NOT NULL,
+  `refund_amount` DECIMAL(14,2) NOT NULL,
+  `created_at` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+  PRIMARY KEY (`id`),
+  INDEX `idx_sale_refund_item_refund` (`refund_id`),
+  INDEX `idx_sale_refund_item_sale_item` (`sale_item_id`),
+  CONSTRAINT `sale_refund_items_refund_id_fkey` FOREIGN KEY (`refund_id`) REFERENCES `sale_refunds` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `sale_refund_items_sale_item_id_fkey` FOREIGN KEY (`sale_item_id`) REFERENCES `sale_items` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `sale_refund_items_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

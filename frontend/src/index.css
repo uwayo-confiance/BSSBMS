@@ -224,11 +224,14 @@ body {
   }
 
   #sale-receipt,
-  #sale-receipt * {
+  #sale-receipt *,
+  #table-receipt,
+  #table-receipt * {
     visibility: visible !important;
   }
 
-  #sale-receipt {
+  #sale-receipt,
+  #table-receipt {
     position: absolute;
     inset: 0;
     display: block;
@@ -249,7 +252,25 @@ body {
     box-shadow: none;
   }
 
-  #sale-receipt .no-print {
+  #receipt-paper[data-format="A4"] {
+    width: 210mm;
+    max-width: 210mm;
+  }
+
+  #table-receipt {
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  #table-receipt[data-format="A4"] {
+    width: 210mm;
+    max-width: 210mm;
+  }
+
+  #sale-receipt .no-print,
+  #table-receipt .no-print {
     display: none !important;
   }
 }

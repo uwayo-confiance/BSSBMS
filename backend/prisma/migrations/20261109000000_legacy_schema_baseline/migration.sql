@@ -1,0 +1,2 @@
+-- Existing POS databases were initialized before Prisma Migrate.
+-- This marker is resolved as applied on the existing database; it applies no DDL.

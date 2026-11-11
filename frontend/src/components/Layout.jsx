@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, ShoppingCart, Package, Truck, Users,
-  Wallet, BarChart3, LogOut, Menu, X, Beer, Settings
+  LayoutDashboard, ShoppingCart, Package, Truck, Users, ClipboardList, Table2,
+  Wallet, BarChart3, LogOut, Menu, X, Beer, Settings, RotateCcw
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -11,10 +11,17 @@ const navItems = [
   { to: '/pos', icon: ShoppingCart, label: 'POS / Sales', roles: ['admin','manager','cashier'] },
   { to: '/products', icon: Package, label: 'Products', roles: ['admin','manager','stock_keeper'] },
   { to: '/stock', icon: Beer, label: 'Stock', roles: ['admin','manager','stock_keeper'] },
+  { to: '/stock-counts', icon: ClipboardList, label: 'Stock Counts', roles: ['admin','manager','stock_keeper'] },
+  { to: '/floor', icon: Table2, label: 'Floor & Tabs', roles: ['admin','manager','cashier','waiter'] },
   { to: '/purchases', icon: Truck, label: 'Purchases', roles: ['admin','manager','stock_keeper'] },
+  { to: '/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', roles: ['admin','manager','stock_keeper'] },
+  { to: '/suppliers', icon: Truck, label: 'Suppliers', roles: ['admin','manager'] },
   { to: '/customers', icon: Users, label: 'Customers', roles: ['admin','manager','cashier'] },
   { to: '/expenses', icon: Wallet, label: 'Expenses', roles: ['admin','manager'] },
+  { to: '/cashier-shift', icon: Wallet, label: 'Cashier Shift', roles: ['admin','manager','cashier','waiter','stock_keeper'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', roles: ['admin','manager'] },
+  { to: '/audit-log', icon: ClipboardList, label: 'Audit History', roles: ['admin'] },
+  { to: '/refunds', icon: RotateCcw, label: 'Refunds', roles: ['admin','manager'] },
 ];
 
 export default function Layout() {
@@ -40,7 +47,7 @@ export default function Layout() {
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/20">
           <div className="w-9 h-9 rounded-lg bg-bms-primary flex items-center justify-center font-bold text-lg text-white">B</div>
           <div>
-            <h1 className="font-semibold text-sm leading-tight">BSSBMS</h1>
+            <h1 className="font-semibold text-sm leading-tight">Umucyo Bar</h1>
             <p className="text-xs text-white/75">Bar Management</p>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -48,7 +55,10 @@ export default function Layout() {
           </button>
         </div>
 
-        <nav className="mt-2 flex-1 space-y-1 overflow-y-auto p-3">
+        <nav
+          className="mt-2 flex-1 space-y-1 overflow-y-auto p-3 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
+        >
           {filteredNav.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -97,7 +107,18 @@ export default function Layout() {
           <button className="lg:hidden p-1.5 rounded-md hover:bg-slate-100" onClick={() => setSidebarOpen(true)}>
             <Menu size={22} />
           </button>
-          <h2 className="font-semibold text-slate-700 text-lg">Bar Stock & Sales System</h2>
+          <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-700 text-lg">Bar Stock & Sales System</h2>
+          {['admin', 'manager'].includes(user?.role) && (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) => `inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? 'bg-bms-primary text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Settings size={17} />
+              <span className="hidden sm:inline">Settings</span>
+            </NavLink>
+          )}
         </header>
 
         <main className="flex-1 p-4 md:p-6">

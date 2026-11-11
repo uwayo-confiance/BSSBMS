@@ -13,6 +13,9 @@ const emptyForm = {
   barcode: '',
   quantity: 0,
   is_active: 1,
+  product_units: [],
+  track_expiry: 0,
+  require_batch: 0,
 };
 
 function formatRWF(n) {
@@ -71,13 +74,47 @@ export default function Products() {
     setSaving(true);
     try {
       const wasEditing = Boolean(editingProduct);
+      const baseUnitConfig = editingProduct?.product_units?.find(
+        (unit) => Number(unit.unit_id) === Number(form.base_unit_id)
+      );
+      const additionalDefaultPurchase = form.product_units.some((unit) => Number(unit.is_default_purchase));
+      const additionalDefaultSale = form.product_units.some((unit) => Number(unit.is_default_sale));
+      const configuredUnits = [
+        ...form.product_units,
+        ...(baseUnitConfig ? [{
+          unit_id: String(baseUnitConfig.unit_id),
+          conversion_factor: String(baseUnitConfig.conversion_factor),
+          purchase_price: String(baseUnitConfig.purchase_price ?? ''),
+          selling_price: String(baseUnitConfig.selling_price ?? ''),
+          is_purchase_enabled: Number(baseUnitConfig.is_purchase_enabled),
+          is_sale_enabled: Number(baseUnitConfig.is_sale_enabled),
+          is_active: Number(baseUnitConfig.is_active),
+          is_default_purchase: additionalDefaultPurchase ? 0 : Number(baseUnitConfig.is_default_purchase),
+          is_default_sale: additionalDefaultSale ? 0 : Number(baseUnitConfig.is_default_sale),
+        }] : []),
+      ];
       const payload = {
         ...form,
+        product_units: configuredUnits
+          .filter((unit) => unit.unit_id)
+          .map((unit) => ({
+            ...unit,
+            unit_id: Number(unit.unit_id),
+            conversion_factor: Number(unit.conversion_factor),
+            purchase_price: Number(unit.unit_id) === Number(form.base_unit_id)
+              ? Number(form.cost_price) || 0
+              : unit.purchase_price === '' ? null : Number(unit.purchase_price),
+            selling_price: Number(unit.is_default_sale)
+              ? Number(form.selling_price) || 0
+              : unit.selling_price === '' ? null : Number(unit.selling_price),
+          })),
         category_id: form.category_id || null,
         base_unit_id: Number(form.base_unit_id),
         cost_price: Number(form.cost_price) || 0,
         selling_price: Number(form.selling_price) || 0,
         min_stock_level: Number(form.min_stock_level) || 0,
+        track_expiry: Number(form.track_expiry),
+        require_batch: Number(form.require_batch),
         sku: form.sku.trim() || null,
         barcode: form.barcode.trim() || null,
       };
@@ -123,8 +160,55 @@ export default function Products() {
       barcode: product.barcode || '',
       quantity: 0,
       is_active: Number(product.is_active) ? 1 : 0,
+      track_expiry: Number(product.track_expiry) ? 1 : 0,
+      require_batch: Number(product.require_batch) ? 1 : 0,
+      product_units: (product.product_units || [])
+        .filter((unit) => Number(unit.unit_id) !== Number(product.base_unit_id))
+        .map((unit) => ({
+          unit_id: String(unit.unit_id),
+          conversion_factor: String(unit.conversion_factor),
+          purchase_price: unit.purchase_price == null ? '' : String(unit.purchase_price),
+          selling_price: unit.selling_price == null ? '' : String(unit.selling_price),
+          is_purchase_enabled: Number(unit.is_purchase_enabled),
+          is_sale_enabled: Number(unit.is_sale_enabled),
+          is_active: Number(unit.is_active),
+          is_default_purchase: Number(unit.is_default_purchase),
+          is_default_sale: Number(unit.is_default_sale),
+        })),
     });
     setShowForm(true);
+  };
+
+  const updateProductUnit = (index, key, value) => {
+    setForm((current) => ({
+      ...current,
+      product_units: current.product_units.map((unit, unitIndex) => {
+        if (unitIndex !== index) {
+          if ((key === 'is_default_purchase' || key === 'is_default_sale') && value === 1) {
+            return { ...unit, [key]: 0 };
+          }
+          return unit;
+        }
+        return { ...unit, [key]: value };
+      }),
+    }));
+  };
+
+  const addProductUnit = () => {
+    setForm((current) => ({
+      ...current,
+      product_units: [...current.product_units, {
+        unit_id: '',
+        conversion_factor: '1',
+        purchase_price: '',
+        selling_price: '',
+        is_purchase_enabled: 1,
+        is_sale_enabled: 0,
+        is_active: 1,
+        is_default_purchase: 0,
+        is_default_sale: 0,
+      }],
+    }));
   };
 
   const toggleProductSelection = (productId) => {
@@ -324,7 +408,7 @@ export default function Products() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl space-y-4">
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-slate-800">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
@@ -390,7 +474,109 @@ export default function Products() {
                   <option value={0}>Inactive</option>
                 </select>
               </div>}
+              <label className="col-span-2 inline-flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" checked={Boolean(Number(form.track_expiry))}
+                  onChange={(event) => setForm({ ...form, track_expiry: event.target.checked ? 1 : 0 })} />
+                Track expiry dates for received batches
+              </label>
+              <label className="col-span-2 inline-flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" checked={Boolean(Number(form.require_batch))}
+                  onChange={(event) => setForm({ ...form, require_batch: event.target.checked ? 1 : 0 })} />
+                Require batch number when receiving stock
+              </label>
             </div>
+            <section className="space-y-3 border-t border-slate-100 pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-800">Product Units & Packaging</h4>
+                  <p className="text-xs text-slate-500">
+                    Set how each package converts into {units.find((unit) => String(unit.id) === String(form.base_unit_id))?.name || 'the base unit'}.
+                  </p>
+                </div>
+                <button type="button" onClick={addProductUnit} className="inline-flex items-center gap-1 self-start rounded-lg border border-teal-200 px-3 py-2 text-xs font-medium text-teal-700 hover:bg-teal-50">
+                  <Plus size={14} /> Add unit
+                </button>
+              </div>
+              {form.product_units.length === 0 && (
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                  The base unit is available automatically. Add a package such as a crate to configure its product-specific conversion.
+                </p>
+              )}
+              {form.product_units.map((unit, index) => {
+                const usedUnitIds = form.product_units
+                  .filter((_, rowIndex) => rowIndex !== index)
+                  .map((row) => String(row.unit_id));
+                return (
+                  <div key={`${unit.unit_id || 'new'}-${index}`} className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-6">
+                    <label className="text-xs font-medium text-slate-600 lg:col-span-2">
+                      Unit
+                      <select required value={unit.unit_id} onChange={(event) => updateProductUnit(index, 'unit_id', event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm font-normal">
+                        <option value="">Select unit</option>
+                        {units.filter((option) => String(option.id) !== String(form.base_unit_id) &&
+                          (!usedUnitIds.includes(String(option.id)) || String(option.id) === String(unit.unit_id)))
+                          .map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                      Base units per package
+                      <input required type="number" min="0.0001" step="0.0001" value={unit.conversion_factor}
+                        onChange={(event) => updateProductUnit(index, 'conversion_factor', event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm font-normal" />
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                      Purchase cost
+                      <input type="number" min={Number(unit.is_purchase_enabled) && Number(unit.is_active) ? '0.01' : '0'}
+                        required={Boolean(Number(unit.is_purchase_enabled) && Number(unit.is_active))}
+                        step="any" value={unit.purchase_price}
+                        onChange={(event) => updateProductUnit(index, 'purchase_price', event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm font-normal" />
+                    </label>
+                    <label className="text-xs font-medium text-slate-600">
+                      Selling price
+                      <input type="number" min={Number(unit.is_sale_enabled) && Number(unit.is_active) ? '0.01' : '0'}
+                        required={Boolean(Number(unit.is_sale_enabled) && Number(unit.is_active))}
+                        step="any" value={unit.selling_price}
+                        onChange={(event) => updateProductUnit(index, 'selling_price', event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm font-normal" />
+                    </label>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-600 lg:col-span-6">
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={Boolean(Number(unit.is_purchase_enabled))}
+                          onChange={(event) => updateProductUnit(index, 'is_purchase_enabled', event.target.checked ? 1 : 0)} />
+                        Allow purchase
+                      </label>
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={Boolean(Number(unit.is_sale_enabled))}
+                          onChange={(event) => updateProductUnit(index, 'is_sale_enabled', event.target.checked ? 1 : 0)} />
+                        Allow sale
+                      </label>
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={Boolean(Number(unit.is_active))}
+                          onChange={(event) => updateProductUnit(index, 'is_active', event.target.checked ? 1 : 0)} />
+                        Active
+                      </label>
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={Boolean(Number(unit.is_default_purchase))}
+                          onChange={(event) => updateProductUnit(index, 'is_default_purchase', event.target.checked ? 1 : 0)} />
+                        Default purchase
+                      </label>
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={Boolean(Number(unit.is_default_sale))}
+                          onChange={(event) => updateProductUnit(index, 'is_default_sale', event.target.checked ? 1 : 0)} />
+                        Default sale
+                      </label>
+                      <button type="button" onClick={() => setForm((current) => ({
+                        ...current,
+                        product_units: current.product_units.filter((_, rowIndex) => rowIndex !== index),
+                      }))} aria-label={`Remove product unit ${index + 1}`} className="ml-auto inline-flex items-center gap-1 text-rose-600 hover:text-rose-800">
+                        <Trash2 size={14} /> Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => { setShowForm(false); setEditingProduct(null); }} className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
               <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-60">

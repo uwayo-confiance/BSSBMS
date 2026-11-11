@@ -7,6 +7,14 @@ function formatRWF(n) {
   return new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n || 0);
 }
 
+function formatReceiptAmount(value, currency) {
+  return new Intl.NumberFormat('en-RW', {
+    style: 'currency',
+    currency: currency || 'RWF',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
 function getReceiptTimestamp() {
   return new Date().toISOString();
 }
@@ -38,6 +46,13 @@ export default function POS() {
   const [discount, setDiscount] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [lastSale, setLastSale] = useState(null);
+  const [receiptSettings, setReceiptSettings] = useState({
+    business: { name: 'Umucyo Bar', currency: 'RWF', timezone: 'Africa/Kigali' },
+    receipt: {
+      paper_format: '80mm', show_cashier: true, show_table_number: true,
+      show_payment_breakdown: true, show_open_table_balance: true, footer: '',
+    },
+  });
   const [error, setError] = useState('');
   const [showProductForm, setShowProductForm] = useState(false);
   const [productForm, setProductForm] = useState(emptyProductForm);
@@ -46,7 +61,10 @@ export default function POS() {
   const [catalogError, setCatalogError] = useState('');
   const [productNotice, setProductNotice] = useState('');
   const searchRef = useRef(null);
+  const saleRequestKey = useRef(null);
   const canAddProducts = ['admin', 'manager', 'stock_keeper'].includes(user?.role);
+  const canConfirmPayments = ['admin', 'manager'].includes(user?.role);
+  const [paymentReference, setPaymentReference] = useState('');
 
   useEffect(() => {
     api.get('/products?active=true').then((r) => setProducts(r.data.data || []));
@@ -57,6 +75,9 @@ export default function POS() {
         setUnits(unitResponse.data.data?.units || []);
       })
       .catch(() => setCatalogError('Could not load product categories and units. Please reload the POS and try again.'));
+    api.get('/settings/receipt')
+      .then((response) => setReceiptSettings(response.data.data))
+      .catch(() => setCatalogError('Could not load receipt settings. Please reload the POS and try again.'));
     searchRef.current?.focus();
   }, []);
 
@@ -102,6 +123,17 @@ export default function POS() {
   );
 
   const addToCart = (product) => {
+    const saleUnits = (product.product_units || []).filter(
+      (unit) => Number(unit.is_active) && Number(unit.is_sale_enabled)
+    );
+    const selectedUnit = saleUnits.find((unit) => Number(unit.is_default_sale))
+      || saleUnits[0]
+      || null;
+    const legacyUnitId = product.sale_unit_id || product.base_unit_id;
+    const unitId = selectedUnit?.unit_id || legacyUnitId;
+    const unitName = selectedUnit?.unit?.abbreviation || selectedUnit?.unit?.name
+      || product.base_unit_abbr || 'unit';
+    const unitPrice = Number(selectedUnit?.selling_price ?? product.selling_price);
     setCart((prev) => {
       const existing = prev.find((i) => i.product_id === product.id);
       if (existing) {
@@ -116,18 +148,35 @@ export default function POS() {
         {
           product_id: product.id,
           name: product.name,
-          unit_id: product.sale_unit_id || product.base_unit_id,
-          unit_name: product.base_unit_abbr || 'btl',
+          unit_id: unitId,
+          unit_name: unitName,
           quantity: 1,
-          unit_price: Number(product.selling_price),
+          unit_price: unitPrice,
           discount: 0,
-          total_price: Number(product.selling_price),
+          total_price: unitPrice,
           stock: Number(product.stock_qty),
+          sale_units: saleUnits,
         },
       ];
     });
     setSearch('');
     searchRef.current?.focus();
+  };
+
+  const changeCartUnit = (productId, unitId) => {
+    setCart((current) => current.map((item) => {
+      if (item.product_id !== productId) return item;
+      const selectedUnit = item.sale_units.find((unit) => String(unit.unit_id) === String(unitId));
+      if (!selectedUnit) return item;
+      const unitPrice = Number(selectedUnit.selling_price ?? 0);
+      return {
+        ...item,
+        unit_id: selectedUnit.unit_id,
+        unit_name: selectedUnit.unit?.abbreviation || selectedUnit.unit?.name || 'unit',
+        unit_price: unitPrice,
+        total_price: item.quantity * unitPrice - item.discount,
+      };
+    }));
   };
 
   const updateQty = (productId, delta) => {
@@ -193,7 +242,9 @@ export default function POS() {
     setProcessing(true);
     setError('');
     try {
+      saleRequestKey.current ||= window.crypto.randomUUID();
       const payload = {
+        idempotency_key: saleRequestKey.current,
         customer_id: selectedCustomer?.id || null,
         items: cart.map((i) => ({
           product_id: i.product_id,
@@ -205,7 +256,8 @@ export default function POS() {
         payment_method: paymentMethod,
         amount_paid: paid,
         discount_amount: Number(discount || 0),
-        payment_status: paid >= total ? 'paid' : selectedCustomer ? 'credit' : 'partial',
+        reference: paymentReference || null,
+        external_reference: paymentReference || null,
       };
       const res = await api.post('/sales', payload);
       setLastSale({
@@ -214,6 +266,7 @@ export default function POS() {
         customer_name: selectedCustomer?.name || 'Walk-in Customer',
         cashier_name: user?.full_name || '',
         payment_method: paymentMethod,
+        payment_reference: paymentReference,
         subtotal,
         discount_amount: Number(discount || 0),
         balance_due: Math.max(0, total - Number(res.data.data.amount_paid ?? paid)),
@@ -223,12 +276,36 @@ export default function POS() {
       setQuantityDraft({});
       setDiscount(0);
       setAmountPaid('');
+      setPaymentReference('');
       setSelectedCustomer(null);
+      saleRequestKey.current = null;
       api.get('/products?active=true')
         .then((prods) => setProducts(prods.data.data || []))
         .catch(() => setProductNotice('Sale completed, but stock could not refresh. Reload the POS to see updated stock.'));
     } catch (err) {
       setError(err.response?.data?.message || 'Sale failed');
+      if (err.response && err.response.status < 500) saleRequestKey.current = null;
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const confirmMobilePayment = async () => {
+    if (!lastSale?.payment_id || !window.confirm('Confirm that this Mobile Money payment has been independently verified?')) return;
+    setProcessing(true);
+    setError('');
+    try {
+      const response = await api.post(`/sales/payments/${lastSale.payment_id}/confirm`, {
+        external_reference: lastSale.payment_reference || undefined,
+      });
+      setLastSale((current) => ({
+        ...current,
+        amount_paid: response.data.data.amount_paid,
+        balance_due: Math.max(0, Number(current.total_amount) - Number(response.data.data.amount_paid)),
+        payment_status: response.data.data.amount_paid >= current.total_amount ? 'paid' : 'partial',
+      }));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not confirm Mobile Money payment.');
     } finally {
       setProcessing(false);
     }
@@ -355,6 +432,22 @@ export default function POS() {
                     <tr key={item.product_id} className="hover:bg-slate-50">
                       <td className="px-3 py-2">
                         <p className="max-w-28 truncate font-medium text-slate-800" title={item.name}>{item.name}</p>
+                        {item.sale_units.length > 1 ? (
+                          <select
+                            aria-label={`Sale unit for ${item.name}`}
+                            value={item.unit_id}
+                            onChange={(event) => changeCartUnit(item.product_id, event.target.value)}
+                            className="mt-1 max-w-32 rounded border border-slate-200 px-1 py-1 text-[11px] font-normal text-slate-600"
+                          >
+                            {item.sale_units.map((unit) => (
+                              <option key={unit.id} value={unit.unit_id}>
+                                {unit.unit?.name || 'Unit'} ({formatRWF(unit.selling_price)})
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="text-[11px] text-slate-400">{item.unit_name}</p>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
@@ -430,6 +523,7 @@ export default function POS() {
               {[
                 { id: 'cash', icon: Banknote, label: 'Cash' },
                 { id: 'mobile_money', icon: Smartphone, label: 'MoMo' },
+                { id: 'bank', icon: CreditCard, label: 'Bank' },
                 { id: 'credit', icon: CreditCard, label: 'Credit' },
               ].map(({ id, icon: Icon, label }) => (
                 <button
@@ -449,6 +543,9 @@ export default function POS() {
                 <label className="text-xs text-slate-500">Amount Paid</label>
                 <input
                   type="number"
+                  min="0"
+                  max={paymentMethod === 'cash' ? undefined : total}
+                  step="0.01"
                   value={amountPaid}
                   onChange={(e) => setAmountPaid(e.target.value)}
                   placeholder={String(total)}
@@ -457,6 +554,7 @@ export default function POS() {
                 {paid > total && (
                   <p className="text-xs text-bms-success mt-1">Change: {formatRWF(change)}</p>
                 )}
+                {paymentMethod === 'mobile_money' && <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Mobile Money reference (will remain pending)" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />}
               </div>
             )}
 
@@ -558,7 +656,7 @@ export default function POS() {
       {/* Sale receipt */}
       {lastSale && (
         <div id="sale-receipt" className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center overflow-y-auto p-4">
-          <div id="receipt-paper" className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+          <div id="receipt-paper" data-format={receiptSettings.receipt.paper_format} className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <div className="no-print text-center">
               <div className="w-14 h-14 rounded-full bg-green-100 text-bms-success flex items-center justify-center mx-auto mb-4">
                 <Check size={28} />
@@ -566,17 +664,29 @@ export default function POS() {
               <h3 className="text-lg font-bold text-slate-800">Sale Complete</h3>
             </div>
             <div className="text-center border-b border-dashed border-slate-300 pb-4">
-              <h2 className="text-xl font-bold text-slate-800">BSSBMS</h2>
+              {receiptSettings.business.logo_url && (
+                <img src={receiptSettings.business.logo_url} alt={`${receiptSettings.business.name} logo`} className="mx-auto mb-2 max-h-16 max-w-36 object-contain" />
+              )}
+              <h2 className="text-xl font-bold text-slate-800">{receiptSettings.business.name || 'Umucyo Bar'}</h2>
+              {receiptSettings.business.address && <p className="text-xs text-slate-500">{receiptSettings.business.address}</p>}
+              {receiptSettings.business.phone && <p className="text-xs text-slate-500">{receiptSettings.business.phone}</p>}
+              {receiptSettings.business.email && <p className="text-xs text-slate-500">{receiptSettings.business.email}</p>}
+              {receiptSettings.business.tin && <p className="text-xs text-slate-500">TIN: {receiptSettings.business.tin}</p>}
               <p className="text-xs font-semibold tracking-widest text-slate-500">FACTURE / SALES INVOICE</p>
               <p className="mt-3 text-xs text-slate-500">Invoice No.</p>
               <p className="text-sm font-semibold text-slate-700">{lastSale.receipt_number}</p>
-              <p className="text-xs text-slate-500">{new Date(lastSale.completed_at).toLocaleString()}</p>
+              <p className="text-xs text-slate-500">{new Intl.DateTimeFormat('en-RW', {
+                dateStyle: 'medium', timeStyle: 'short',
+                timeZone: receiptSettings.business.timezone || 'Africa/Kigali',
+              }).format(new Date(lastSale.completed_at))}</p>
             </div>
 
             <div className="space-y-1 border-b border-dashed border-slate-300 py-3 text-xs">
               <p className="flex justify-between gap-3"><span className="text-slate-500">Customer</span><span className="text-right font-medium">{lastSale.customer_name}</span></p>
-              {lastSale.cashier_name && <p className="flex justify-between gap-3"><span className="text-slate-500">Served by</span><span className="text-right font-medium">{lastSale.cashier_name}</span></p>}
-              <p className="flex justify-between gap-3"><span className="text-slate-500">Payment</span><span className="text-right font-medium capitalize">{lastSale.payment_method.replace('_', ' ')}</span></p>
+              {receiptSettings.receipt.show_cashier && lastSale.cashier_name && <p className="flex justify-between gap-3"><span className="text-slate-500">Served by</span><span className="text-right font-medium">{lastSale.cashier_name}</span></p>}
+              {receiptSettings.receipt.show_table_number && lastSale.table_number && <p className="flex justify-between gap-3"><span className="text-slate-500">Table</span><span className="text-right font-medium">{lastSale.table_number}</span></p>}
+              {receiptSettings.receipt.show_payment_breakdown && <p className="flex justify-between gap-3"><span className="text-slate-500">Payment</span><span className="text-right font-medium capitalize">{lastSale.payment_method.replace('_', ' ')}</span></p>}
+              {receiptSettings.receipt.show_payment_breakdown && lastSale.payment_method === 'mobile_money' && lastSale.payment_status !== 'paid' && <p className="font-semibold text-amber-700">Mobile Money payment pending confirmation</p>}
             </div>
 
             <div className="border-b border-dashed border-slate-300 py-3">
@@ -594,8 +704,8 @@ export default function POS() {
                     <tr key={item.product_id}>
                       <td className="py-2 pr-2 font-medium text-slate-700">{item.name}</td>
                       <td className="py-2 text-right text-slate-600">{item.quantity}</td>
-                      <td className="py-2 text-right text-slate-600">{formatRWF(item.unit_price)}</td>
-                      <td className="py-2 text-right font-medium text-slate-700">{formatRWF(item.total_price)}</td>
+                      <td className="py-2 text-right text-slate-600">{formatReceiptAmount(item.unit_price, receiptSettings.business.currency)}</td>
+                      <td className="py-2 text-right font-medium text-slate-700">{formatReceiptAmount(item.total_price, receiptSettings.business.currency)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -603,14 +713,19 @@ export default function POS() {
             </div>
 
             <div className="space-y-2 py-3 text-sm">
-              <p className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{formatRWF(lastSale.subtotal)}</span></p>
-              {Number(lastSale.discount_amount) > 0 && <p className="flex justify-between"><span className="text-slate-500">Discount</span><span>-{formatRWF(lastSale.discount_amount)}</span></p>}
-              <p className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-800"><span>Total</span><span>{formatRWF(lastSale.total_amount)}</span></p>
-              <p className="flex justify-between"><span className="text-slate-500">Amount paid</span><span>{formatRWF(lastSale.amount_paid)}</span></p>
-              {Number(lastSale.balance_due) > 0 && <p className="flex justify-between font-semibold text-rose-600"><span>Balance due</span><span>{formatRWF(lastSale.balance_due)}</span></p>}
-              {Number(lastSale.change_given) > 0 && <p className="flex justify-between font-semibold text-bms-success"><span>Change</span><span>{formatRWF(lastSale.change_given)}</span></p>}
+              <p className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{formatReceiptAmount(lastSale.subtotal, receiptSettings.business.currency)}</span></p>
+              {Number(lastSale.discount_amount) > 0 && <p className="flex justify-between"><span className="text-slate-500">Discount</span><span>-{formatReceiptAmount(lastSale.discount_amount, receiptSettings.business.currency)}</span></p>}
+              <p className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-800"><span>Total</span><span>{formatReceiptAmount(lastSale.total_amount, receiptSettings.business.currency)}</span></p>
+              {receiptSettings.receipt.show_payment_breakdown && <p className="flex justify-between"><span className="text-slate-500">Amount paid</span><span>{formatReceiptAmount(lastSale.amount_paid, receiptSettings.business.currency)}</span></p>}
+              {receiptSettings.receipt.show_payment_breakdown && Number(lastSale.balance_due) > 0 && <p className="flex justify-between font-semibold text-rose-600"><span>Balance due</span><span>{formatReceiptAmount(lastSale.balance_due, receiptSettings.business.currency)}</span></p>}
+              {receiptSettings.receipt.show_payment_breakdown && Number(lastSale.change_given) > 0 && <p className="flex justify-between font-semibold text-bms-success"><span>Change</span><span>{formatReceiptAmount(lastSale.change_given, receiptSettings.business.currency)}</span></p>}
             </div>
-            <p className="border-t border-dashed border-slate-300 pt-3 text-center text-xs text-slate-500">Thank you for your purchase!</p>
+            <p className="border-t border-dashed border-slate-300 pt-3 text-center text-xs text-slate-500">{receiptSettings.receipt.footer || receiptSettings.business.receipt_footer || 'Thank you for your purchase!'}</p>
+            {canConfirmPayments && lastSale.payment_method === 'mobile_money' && lastSale.payment_status !== 'paid' && lastSale.payment_id && (
+              <button type="button" disabled={processing} onClick={confirmMobilePayment} className="no-print mt-2 w-full rounded-lg bg-emerald-700 py-2 text-sm font-medium text-white disabled:opacity-50">
+                Confirm verified Mobile Money payment
+              </button>
+            )}
 
             <div className="no-print mt-5 flex gap-3">
               <button

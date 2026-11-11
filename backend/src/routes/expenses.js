@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { prisma } = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { recordCashMovement } = require('../utils/cashLedger');
+const { money } = require('../utils/helpers');
+const { recordAuditEvent } = require('../utils/auditLog');
 
 router.get('/categories', authenticate, async (req, res) => {
   const data = await prisma.expense_categories.findMany({ orderBy: { name: 'asc' } });
@@ -46,25 +49,53 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, authorize('admin', 'manager'), async (req, res) => {
   try {
     const { category_id, title, amount, expense_date, payment_method, reference, notes } = req.body;
-    if (!title || !amount) {
+    const numericAmount = Number(amount);
+    const method = payment_method || 'cash';
+    if (!title || typeof title !== 'string' || !Number.isFinite(numericAmount) || numericAmount <= 0 ||
+        !['cash', 'mobile_money', 'bank', 'other'].includes(method)) {
       return res.status(400).json({ success: false, message: 'Title and amount are required' });
     }
-    const expense = await prisma.expenses.create({
-      data: {
-        category_id: category_id ? Number(category_id) : null,
-        title,
-        amount,
-        expense_date: new Date(`${expense_date || new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
-        payment_method: payment_method || 'cash',
-        reference: reference || null,
-        notes: notes || null,
-        created_by: req.user.id,
-      },
-      select: { id: true },
+    const expense = await prisma.$transaction(async (tx) => {
+      const created = await tx.expenses.create({
+        data: {
+          category_id: category_id ? Number(category_id) : null,
+          title: title.trim(),
+          amount: money(numericAmount),
+          expense_date: new Date(`${expense_date || new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+          payment_method: method,
+          reference: reference || null,
+          notes: notes || null,
+          created_by: req.user.id,
+        },
+        select: { id: true },
+      });
+      await recordAuditEvent(tx, req, {
+        action: 'expense_recorded',
+        entityType: 'expense',
+        entityId: created.id,
+        reason: notes || null,
+        after: { title: title.trim(), amount: money(numericAmount), payment_method: method },
+      });
+      if (method === 'cash') {
+        await recordCashMovement(tx, {
+          userId: req.user.id,
+          movementType: 'expense',
+          amount: numericAmount,
+          referenceType: 'expense',
+          referenceId: created.id,
+          notes: title.trim(),
+          idempotencyKey: `expense:${created.id}:cash`,
+        });
+      }
+      return created;
     });
-    res.status(201).json({ success: true, data: expense });
+    res.status(201).json({ success: true, data: { ...expense, id: expense.id.toString() } });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to create expense' });
+    const status = ['Open a cashier shift before recording a cash transaction',
+      'Cash movement exceeds the available drawer balance',
+      'Cash movement idempotency key was already used for a different request'].includes(err.message) ? 409 : 500;
+    if (status === 500) console.error('Expense creation failed:', err);
+    res.status(status).json({ success: false, message: status === 409 ? err.message : 'Failed to create expense' });
   }
 });
 

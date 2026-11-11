@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
-import { TrendingUp, Package, Users, Wallet, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Package, Users, Wallet, ShoppingCart, AlertTriangle, Beer } from 'lucide-react';
 
 function StatCard({ title, value, subtitle, icon: Icon, color }) {
   return (
@@ -46,9 +46,15 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500">Overview of your business today</p>
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-bms-primary text-white shadow-sm">
+          <Beer size={26} strokeWidth={1.8} aria-hidden="true" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bms-muted-gold">Umucyo Bar</p>
+          <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
+          <p className="text-sm text-slate-500">Overview of your business today</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">

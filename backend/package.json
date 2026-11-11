@@ -4,11 +4,14 @@
   "description": "Bar Stock, Sales and Business Management System - Backend API",
   "main": "src/server.js",
   "scripts": {
+    "prestart": "node src/utils/prismaCli.js generate",
     "start": "node src/server.js",
+    "predev": "node src/utils/prismaCli.js generate",
     "dev": "nodemon src/server.js",
-    "migrate": "node src/utils/migrate.js",
-    "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "test": "node --test",
+    "migrate": "node src/utils/prismaCli.js migrate deploy",
+    "prisma:generate": "node src/utils/prismaCli.js generate",
+    "prisma:validate": "node src/utils/prismaCli.js validate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

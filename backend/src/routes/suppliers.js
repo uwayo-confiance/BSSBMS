@@ -6,9 +6,36 @@ const { authenticate, authorize } = require('../middleware/auth');
 router.get('/', authenticate, async (req, res) => {
   try {
     const { search } = req.query;
-    const data = await prisma.suppliers.findMany({
+    const suppliers = await prisma.suppliers.findMany({
       where: search ? { OR: [{ name: { contains: search } }, { phone: { contains: search } }] } : undefined,
       orderBy: { name: 'asc' },
+    });
+    const supplierIds = suppliers.map(({ id }) => id);
+    const [purchases, payments, returns] = await Promise.all([
+      prisma.purchases.findMany({ where: { supplier_id: { in: supplierIds } } }),
+      prisma.supplier_payments.findMany({ where: { supplier_id: { in: supplierIds } } }),
+      prisma.supplier_returns.findMany({ where: { supplier_id: { in: supplierIds } }, select: { supplier_id: true, amount: true, created_at: true } }),
+    ]);
+    const data = suppliers.map((supplier) => {
+      const supplierPurchases = purchases.filter((purchase) => purchase.supplier_id === supplier.id && purchase.status !== 'cancelled');
+      const supplierPayments = payments.filter((payment) => payment.supplier_id === supplier.id);
+      const supplierReturns = returns.filter((item) => item.supplier_id === supplier.id);
+      const totalPurchases = supplierPurchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0);
+      const totalPaid = supplierPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const totalReturns = supplierReturns.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const dates = [
+        ...supplierPurchases.map((purchase) => new Date(purchase.purchase_date)),
+        ...supplierPayments.map((payment) => new Date(payment.payment_date)),
+        ...supplierReturns.map((item) => new Date(item.created_at)),
+      ].filter((date) => !Number.isNaN(date.getTime()));
+      return {
+        ...supplier,
+        total_purchases: totalPurchases,
+        total_paid: totalPaid,
+        outstanding_balance: supplierPurchases.reduce((sum, purchase) => sum + Number(purchase.balance || 0), 0),
+        credit_balance: Math.max(0, totalPaid + totalReturns - totalPurchases),
+        last_transaction_date: dates.length ? new Date(Math.max(...dates.map((date) => date.getTime()))) : null,
+      };
     });
     res.json({ success: true, data });
   } catch (err) {

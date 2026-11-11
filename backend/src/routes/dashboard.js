@@ -11,7 +11,7 @@ router.get('/summary', authenticate, async (req, res) => {
     const tomorrow = new Date(todayStart);
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const [salesToday, salesMonth, products, debts, expensesToday, recentSales, topProducts] = await Promise.all([
+    const [salesToday, salesMonth, products, debts, expensesToday, recentSales, topProducts, inventorySetting] = await Promise.all([
       prisma.sales.aggregate({
         where: { sale_date: { gte: todayStart, lt: tomorrow }, status: 'completed' },
         _count: { _all: true },
@@ -23,7 +23,7 @@ router.get('/summary', authenticate, async (req, res) => {
         _sum: { total_amount: true },
       }),
       prisma.products.findMany({
-        where: { is_active: 1, track_stock: 1, min_stock_level: { gt: 0 } },
+        where: { is_active: 1, track_stock: 1 },
         select: { id: true, min_stock_level: true },
       }),
       prisma.customer_debts.aggregate({
@@ -50,6 +50,7 @@ router.get('/summary', authenticate, async (req, res) => {
         ORDER BY qty_sold DESC
         LIMIT 5
       `,
+      prisma.system_settings.findUnique({ where: { key: 'inventory' } }),
     ]);
 
     const stock = await prisma.stock.findMany({
@@ -57,9 +58,11 @@ router.get('/summary', authenticate, async (req, res) => {
       select: { product_id: true, quantity: true },
     });
     const stockByProduct = new Map(stock.map(({ product_id, quantity }) => [product_id, quantity]));
-    const lowStockCount = products.filter(({ id, min_stock_level }) =>
-      Number(stockByProduct.get(id) ?? 0) <= Number(min_stock_level)
-    ).length;
+    const defaultThreshold = Number(inventorySetting?.value?.default_low_stock_threshold || 0);
+    const lowStockCount = products.filter(({ id, min_stock_level }) => {
+      const threshold = Number(min_stock_level) > 0 ? Number(min_stock_level) : defaultThreshold;
+      return threshold > 0 && Number(stockByProduct.get(id) ?? 0) <= threshold;
+    }).length;
     const customerIds = [...new Set(recentSales.map(({ customer_id }) => customer_id).filter(Boolean))];
     const customers = await prisma.customers.findMany({
       where: { id: { in: customerIds } },
