@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Package, Truck, Users, ClipboardList, Table2,
@@ -27,6 +27,7 @@ const navItems = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
@@ -35,20 +36,22 @@ export default function Layout() {
   };
 
   const filteredNav = navItems.filter((item) => item.roles.includes(user?.role));
+  const pageTitle = filteredNav.find((item) => item.to === location.pathname)?.label ||
+    (location.pathname.startsWith('/suppliers/') ? 'Supplier details' : 'Business management');
 
   return (
     <div className="min-h-screen flex bg-slate-100">
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col overflow-hidden bg-bms-dark text-white transform transition-transform duration-200
+        fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col overflow-hidden border-r border-slate-200 bg-white text-slate-700 transform transition-transform duration-200
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/20">
-          <div className="w-9 h-9 rounded-lg bg-bms-primary flex items-center justify-center font-bold text-lg text-white">B</div>
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
+          <div className="w-9 h-9 rounded-lg bg-bms-primary flex items-center justify-center font-bold text-lg text-white">U</div>
           <div>
             <h1 className="font-semibold text-sm leading-tight">Umucyo Bar</h1>
-            <p className="text-xs text-white/75">Bar Management</p>
+            <p className="text-xs text-slate-500">Bar Management</p>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
@@ -67,7 +70,7 @@ export default function Layout() {
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                ${isActive ? 'bg-bms-primary text-white' : 'text-white/90 hover:bg-white/10 hover:text-white'}`
+                ${isActive ? 'bg-green-50 text-green-700 font-semibold border-l-[3px] border-green-500' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`
               }
             >
               <Icon size={18} />
@@ -76,19 +79,19 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="flex-shrink-0 border-t border-white/20 p-4">
+        <div className="flex-shrink-0 border-t border-slate-100 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-bms-primary flex items-center justify-center text-sm font-semibold text-white">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-semibold text-green-800">
               {user?.full_name?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user?.full_name}</p>
-              <p className="text-xs text-white/75 capitalize">{user?.role}</p>
+              <p className="text-xs text-slate-500 capitalize">{user?.role?.replaceAll('_', ' ')}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors"
           >
             <LogOut size={16} />
             Sign out
@@ -103,11 +106,11 @@ export default function Layout() {
 
       {/* Main */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-64">
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-7 py-3 flex items-center gap-3">
           <button className="lg:hidden p-1.5 rounded-md hover:bg-slate-100" onClick={() => setSidebarOpen(true)}>
             <Menu size={22} />
           </button>
-          <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-700 text-lg">Bar Stock & Sales System</h2>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs text-slate-400">Umucyo Bar / Workspace</p><h2 className="truncate font-semibold text-slate-800">{pageTitle}</h2></div>
           {['admin', 'manager'].includes(user?.role) && (
             <NavLink
               to="/settings"
@@ -121,7 +124,7 @@ export default function Layout() {
           )}
         </header>
 
-        <main className="flex-1 p-4 md:p-6">
+        <main className="flex-1 p-4 md:p-7">
           <Outlet />
         </main>
       </div>

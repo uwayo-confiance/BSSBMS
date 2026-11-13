@@ -1,237 +1,62 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowDownRight,
-  ArrowRight,
-  BarChart3,
-  Beer,
-  Boxes,
-  Check,
-  ClipboardList,
-  HandCoins,
-  Menu,
-  Package,
-  ReceiptText,
-  ShoppingCart,
-  Sparkles,
-  TrendingUp,
-  Truck,
-  Users,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, Beer, Boxes, Check, ChevronDown, ClipboardCheck, Menu, Package, ShoppingCart, Table2, Truck, Users, Wallet, X } from 'lucide-react';
 
-const features = [
-  { icon: Boxes, title: 'Stock Control', description: 'Know what is available, what is running low and what needs restocking.' },
-  { icon: ShoppingCart, title: 'Sales Tracking', description: 'Record transactions, monitor sales and keep accurate payment records.' },
-  { icon: Truck, title: 'Purchase Management', description: 'Organize supplier information, record incoming purchases and monitor payments.' },
-  { icon: Wallet, title: 'Financial Monitoring', description: 'Track income, expenses and outstanding balances to understand your business performance.' },
-  { icon: Users, title: 'Customer Records', description: 'Keep customer information and payment records organized.' },
-  { icon: BarChart3, title: 'Business Reporting', description: 'Turn business transactions into meaningful reports that support better decisions.' },
+const modules = [
+  { icon: ShoppingCart, title: 'Sales and checkout', text: 'Record counter sales, take payments and keep receipts linked to each transaction.' },
+  { icon: Table2, title: 'Floor and open tabs', text: 'Manage areas, tables, service rounds and balances from one floor view.' },
+  { icon: Boxes, title: 'Stock control', text: 'Track stock levels, adjustments, counts and expiry information.' },
+  { icon: Truck, title: 'Purchasing', text: 'Organize suppliers, purchase orders, deliveries and supplier balances.' },
+  { icon: Wallet, title: 'Cash and expenses', text: 'Review expenses, cash movements and cashier shift reconciliation.' },
+  { icon: BarChart3, title: 'Reports and oversight', text: 'Use recorded business activity to review sales, products and operations.' },
 ];
 
-const benefits = [
-  'Simple and user-friendly design',
-  'Centralized business information',
-  'Accurate inventory records',
-  'Organized financial management',
-  'Improved operational efficiency',
-  'Secure access for authorized users',
-  'Clear business performance reports',
-];
-
-const navigation = [
-  ['Home', '#home'],
-  ['About', '#about'],
-  ['Solutions', '#solutions'],
-  ['Features', '#features'],
-  ['Contact', '#contact'],
+const steps = [
+  ['01', 'Set up your catalogue', 'Add products, selling units, prices and stock details.'],
+  ['02', 'Run daily operations', 'Record sales, receive stock and manage table service.'],
+  ['03', 'Review your records', 'Use reports and activity history to understand what happened.'],
 ];
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  const nav = [['Platform', '#platform'], ['How it works', '#how-it-works'], ['About', '#about']];
 
-  return (
-    <div id="home" className="min-h-screen overflow-hidden bg-white text-stone-800">
-      <header className="absolute inset-x-0 top-0 z-20 px-3 pt-3 sm:px-6 sm:pt-4">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-white/80 bg-white/90 px-4 shadow-sm backdrop-blur-md sm:px-6">
-          <a href="#home" onClick={closeMenu} aria-label="BSSBMS home" className="flex items-center gap-2.5 font-extrabold tracking-tight text-stone-800">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-bms-primary text-white shadow-sm"><Beer size={20} /></span>
-            <span className="text-lg leading-tight">BSS<span className="text-bms-primary">BMS</span><small className="block pt-1 text-[8px] font-semibold tracking-[.12em] text-stone-400">Your Business, Smarter and More Organized.</small></span>
-          </a>
-          <nav aria-label="Main navigation" className="hidden items-center gap-7 md:flex">
-            {navigation.map(([label, href]) => <a key={label} href={href} className="text-sm font-medium text-stone-600 transition hover:text-bms-primary">{label}</a>)}
-            <Link to="/login" className="inline-flex items-center gap-2 rounded-lg bg-bms-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-900/15 transition hover:-translate-y-0.5 hover:bg-bms-primary-hover">Sign In <ArrowRight size={15} /></Link>
-          </nav>
-          <button type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} aria-controls="mobile-navigation" className="flex size-10 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 md:hidden">
-            {menuOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
-          {menuOpen && <nav id="mobile-navigation" aria-label="Mobile navigation" className="absolute left-3 right-3 top-[4.75rem] flex flex-col rounded-xl border border-stone-100 bg-white p-3 shadow-xl md:hidden">
-            {navigation.map(([label, href]) => <a key={label} href={href} onClick={closeMenu} className="border-b border-stone-100 px-3 py-3 text-sm font-medium text-stone-600 last:border-0">{label}</a>)}
-            <Link to="/login" onClick={closeMenu} className="px-3 py-3 text-sm font-semibold text-bms-primary">Sign In</Link>
-          </nav>}
+  return <div id="home" className="min-h-screen bg-white text-[#202b36]">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
+        <a href="#home" onClick={closeMenu} className="flex items-center gap-3" aria-label="Umucyo Bar home"><span className="flex size-10 items-center justify-center rounded-xl bg-[#4fd165] text-white"><Beer size={21}/></span><span><b className="block text-base leading-tight">Umucyo Bar</b><small className="text-[10px] tracking-wide text-slate-500">BUSINESS MANAGEMENT</small></span></a>
+        <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">{nav.map(([label, href]) => <a key={href} href={href} className="text-sm font-medium text-slate-600 hover:text-green-700">{label}</a>)}<Link to="/login" className="inline-flex items-center gap-2 rounded-lg bg-[#4fd165] px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">Sign in <ArrowRight size={15}/></Link></nav>
+        <button type="button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} className="flex size-10 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 md:hidden">{menuOpen ? <X/> : <Menu/>}</button>
+      </div>
+      {menuOpen && <nav className="border-t border-slate-100 bg-white px-5 py-3 md:hidden" aria-label="Mobile navigation">{nav.map(([label, href]) => <a key={href} href={href} onClick={closeMenu} className="block border-b border-slate-100 py-3 text-sm text-slate-700">{label}</a>)}<Link to="/login" onClick={closeMenu} className="block py-3 text-sm font-semibold text-green-700">Sign in</Link></nav>}
+    </header>
+
+    <main>
+      <section className="overflow-hidden bg-[#f4f8f5]">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1fr_.95fr] lg:gap-16 lg:py-28">
+          <div><span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-3 py-1.5 text-xs font-semibold text-green-800"><span className="size-2 rounded-full bg-[#4fd165]"/> A clearer way to run your bar</span><h1 className="mt-6 max-w-2xl text-4xl font-bold leading-[1.08] tracking-tight text-[#202b36] sm:text-5xl lg:text-[3.6rem]">Your daily operations, <span className="text-green-600">working together.</span></h1><p className="mt-6 max-w-xl text-base leading-7 text-slate-600">Umucyo Bar brings sales, inventory, purchasing, table service and financial records into one practical workspace for your team.</p><div className="mt-8 flex flex-wrap gap-3"><Link to="/login" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#4fd165] px-5 text-sm font-semibold text-white shadow-sm hover:bg-green-600">Open your workspace <ArrowRight size={16}/></Link><a href="#platform" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:border-green-400">Explore the platform <ChevronDown size={16}/></a></div><div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500"><span className="inline-flex items-center gap-1.5"><Check size={14} className="text-green-600"/> Sales and stock records</span><span className="inline-flex items-center gap-1.5"><Check size={14} className="text-green-600"/> Table and shift workflows</span></div></div>
+          <div className="relative mx-auto w-full max-w-xl"><div className="absolute -inset-8 rounded-[2.5rem] bg-gradient-to-br from-green-100 via-transparent to-sky-100 blur-2xl"/><div className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-7"><div className="flex items-center justify-between border-b border-slate-100 pb-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-400">Operations workspace</p><p className="mt-1 font-semibold">A connected view of your business</p></div><span className="rounded-lg bg-green-50 p-2.5 text-green-700"><BarChart3 size={20}/></span></div><div className="mt-5 grid grid-cols-2 gap-3">{[[ShoppingCart,'Sales','Receipts and payments'],[Table2,'Floor','Tables and open tabs'],[Package,'Inventory','Stock and counts'],[Wallet,'Finance','Expenses and cash']].map(([Icon,title,desc])=><div key={title} className="rounded-xl border border-slate-100 p-4"><span className="flex size-9 items-center justify-center rounded-lg bg-[#f0faf2] text-green-700"><Icon size={18}/></span><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{desc}</p></div>)}</div><div className="mt-4 flex items-center gap-3 rounded-xl bg-[#f4f8f5] p-4"><ClipboardCheck size={19} className="shrink-0 text-green-700"/><p className="text-xs leading-5 text-slate-600">Keep important activity connected to the records your team uses every day.</p></div></div></div>
         </div>
-      </header>
+      </section>
 
-      <main>
-        <section className="relative bg-[radial-gradient(ellipse_at_50%_72%,rgba(251,196,128,.48),transparent_63%),linear-gradient(180deg,#fffdfa_0%,#fffaf5_56%,#fff0df_100%)] px-4 pb-0 pt-32 text-center sm:px-6 sm:pt-36">
-          <div className="mx-auto max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/70 bg-white/75 px-3.5 py-1.5 text-[10px] font-bold tracking-[.04em] text-bms-primary"><Sparkles size={13} /> Your Business, Smarter and More Organized.</span>
-            <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-[-.045em] text-stone-800 sm:text-5xl lg:text-6xl">Run Your Business<br className="hidden sm:block" /> <span className="text-bms-primary">with Confidence</span></h1>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base">Take control of your daily business operations with BSSBMS, an all-in-one management platform that helps you organize stock, manage sales, monitor purchases and track financial performance.</p>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-stone-600 sm:text-base">Make your business operations easier, faster and more reliable.</p>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/login" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-bms-primary px-6 text-sm font-bold text-white shadow-lg shadow-amber-900/15 transition hover:-translate-y-0.5 hover:bg-bms-primary-hover">Start Managing <ArrowRight size={16} /></Link>
-              <a href="#features" className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-stone-200 bg-white/80 px-6 text-sm font-semibold text-stone-700 transition hover:border-amber-300 hover:bg-white">Explore Features <ArrowDownRight size={16} /></a>
-            </div>
+      <section className="border-b border-slate-200 bg-white px-5 py-16 sm:px-8 sm:py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-wrap items-end justify-between gap-4"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-green-700">A preview of your workspace</p><h2 className="mt-3 text-3xl font-bold tracking-tight">See business activity at a glance.</h2><p className="mt-3 text-sm leading-6 text-slate-600">The dashboard turns recorded sales and product activity into clear charts. These illustrations show the chart style only; they do not contain live business figures.</p></div><span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500">Illustrative preview · no live data</span></div>
+          <div className="mt-8 grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-start justify-between"><div><h3 className="font-semibold text-slate-800">Sales performance</h3><p className="mt-1 text-xs text-slate-500">Example trend visualization</p></div><span className="rounded-lg bg-green-50 p-2 text-green-700"><BarChart3 size={18}/></span></div><svg viewBox="0 0 720 230" className="mt-5 h-56 w-full" role="img" aria-label="Illustrative sales trend chart, not live data"><defs><linearGradient id="landing-sales-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#4fd165" stopOpacity=".18"/><stop offset="100%" stopColor="#4fd165" stopOpacity="0"/></linearGradient></defs>{[25,75,125,175].map((y)=><line key={y} x1="58" y1={y} x2="710" y2={y} stroke="#e9eeeb" strokeWidth="1"/>)}<text x="2" y="29" fontSize="10" fill="#94a3b8">Higher</text><text x="2" y="179" fontSize="10" fill="#94a3b8">Lower</text><path d="M60 160 C105 150 112 105 160 125 S222 158 270 105 S335 120 375 83 S450 115 495 67 S560 90 610 48 S670 68 708 30 L708 180 L60 180Z" fill="url(#landing-sales-fill)"/><path d="M60 160 C105 150 112 105 160 125 S222 158 270 105 S335 120 375 83 S450 115 495 67 S560 90 610 48 S670 68 708 30" fill="none" stroke="#4fd165" strokeWidth="4" strokeLinecap="round"/><text x="60" y="205" fontSize="10" fill="#94a3b8">Earlier</text><text x="708" y="205" textAnchor="end" fontSize="10" fill="#94a3b8">Later</text></svg><div className="flex items-center gap-2 text-xs text-slate-500"><span className="size-2 rounded-full bg-[#4fd165]"/> Sales trend · example only</div></article>
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div><h3 className="font-semibold text-slate-800">Product performance</h3><p className="mt-1 text-xs text-slate-500">Example comparison chart</p></div><div className="mt-7 space-y-6">{[['Product A','w-[88%]'],['Product B','w-[68%]'],['Product C','w-[51%]'],['Product D','w-[34%]']].map(([label,width],index)=><div key={label}><div className="mb-2 flex justify-between text-xs"><span className="text-slate-600">{label}</span><span className="text-slate-400">Example</span></div><div className="h-2.5 rounded-full bg-slate-100"><div className={`h-full rounded-full ${index===0?'bg-[#4fd165]':'bg-green-300'} ${width}`}/></div></div>)}</div><p className="mt-7 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500">After sign-in, charts use your business records and access permissions.</p></article>
           </div>
-        </section>
-
-        <section id="about" className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-2 lg:gap-20">
-          <div className="relative flex min-h-64 items-center justify-center rounded-3xl bg-[radial-gradient(ellipse_at_center,#fceddd_0%,#fff9f3_55%,#fff_78%)] sm:min-h-80">
-            <div className="-rotate-3 rounded-2xl border border-amber-100 bg-white p-6 shadow-xl shadow-stone-200/60 sm:w-72">
-              <span className="text-[10px] font-bold tracking-widest text-stone-400">TODAY&apos;S SALES</span>
-              <b className="mt-2 block text-3xl tracking-tight text-stone-800">428,500 <small className="text-sm font-medium text-stone-400">RWF</small></b>
-              <span className="mt-1 flex items-center gap-1 text-xs text-green-600"><TrendingUp size={14} /> Growing steadily</span>
-              <div className="mt-5 flex h-12 items-end gap-2 border-b border-stone-100">{[35, 54, 43, 78, 60, 90, 67, 82, 48, 96, 73, 100].map((height, index) => <i key={index} style={{ height: `${height}%` }} className="flex-1 rounded-t bg-gradient-to-t from-amber-400 to-amber-200" />)}</div>
-            </div>
-            <div className="absolute bottom-7 right-2 flex -rotate-2 items-center gap-3 rounded-xl border border-stone-100 bg-white px-4 py-3 shadow-lg sm:right-8">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-green-50 text-green-600"><Check size={18} /></span><span><b className="block text-xs text-stone-700">Stock is up to date</b><small className="text-[10px] text-stone-400">Inventory checked just now</small></span>
-            </div>
-            <span className="absolute right-[15%] top-8 flex size-14 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-amber-400 to-bms-primary text-white shadow-lg"><Beer size={24} /></span>
-          </div>
-          <div>
-            <span className="text-xs font-bold tracking-[.15em] text-bms-primary">INTRODUCTION</span>
-            <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-stone-800 sm:text-4xl">A Smarter Way to Manage Your Business</h2>
-            <p className="mt-5 text-sm leading-7 text-stone-600 sm:text-base">Managing a business should not be complicated. BSSBMS provides a centralized platform where business owners and employees can manage their daily activities without depending on manual records and paperwork.</p>
-            <p className="mt-3 text-sm leading-7 text-stone-600 sm:text-base">From stock monitoring to financial reporting, everything is organized in one place.</p>
-            <a href="#solutions" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-bms-primary hover:gap-3">Explore our solutions <ArrowRight size={16} /></a>
-          </div>
-        </section>
-
-        <section id="solutions" className="border-y border-stone-100 bg-bms-cream/40 px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto max-w-6xl">
-            <div className="mx-auto mb-11 max-w-2xl text-center">
-              <span className="text-xs font-bold tracking-[.15em] text-bms-primary">OUR SOLUTIONS</span>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-stone-800 sm:text-4xl">Everything Connected. Everything Under Control.</h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map(({ icon: Icon, title, description }, index) => (
-                <article key={title} className="group rounded-2xl border border-stone-200/80 bg-white p-5 transition hover:-translate-y-1 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-100/60">
-                  <div className="flex items-center justify-between">
-                    <span className="flex size-11 items-center justify-center rounded-xl bg-amber-100 text-bms-primary transition group-hover:bg-bms-primary group-hover:text-white"><Icon size={21} strokeWidth={1.8} /></span>
-                    <span className="text-xs font-bold tracking-widest text-stone-300">0{index + 1}</span>
-                  </div>
-                  <h3 className="mt-5 font-bold text-stone-800">{title}</h3>
-                  <p className="mt-2 text-xs leading-5 text-stone-500">{description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto mb-11 max-w-2xl text-center">
-            <span className="text-xs font-bold tracking-[.15em] text-bms-primary">HOW IT WORKS</span>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-stone-800 sm:text-4xl">Three Steps to Better Business Management</h2>
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {[
-              { icon: ClipboardList, step: '01', title: 'Register Your Business', text: 'Set up your business profile, add employees and configure your products.' },
-              { icon: HandCoins, step: '02', title: 'Manage Daily Operations', text: 'Record purchases, update stock, process sales and monitor expenses.' },
-              { icon: TrendingUp, step: '03', title: 'Monitor Your Performance', text: 'View business statistics, analyze reports and make informed decisions.' },
-            ].map(({ icon: Icon, step, title, text }) => (
-              <article key={step} className="relative rounded-2xl border border-stone-200 p-6 sm:p-7">
-                <span className="absolute right-6 top-6 text-xs font-bold tracking-widest text-bms-muted-gold">{step}</span>
-                <span className="flex size-12 items-center justify-center rounded-xl bg-amber-100 text-bms-primary"><Icon size={22} /></span>
-                <h3 className="mt-5 font-bold text-stone-800">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-stone-500">{text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-gradient-to-br from-amber-50 to-bms-cream px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-20">
-            <div>
-              <span className="text-xs font-bold tracking-[.15em] text-bms-primary">WHY BUSINESSES TRUST BSSBMS</span>
-              <h2 className="mt-3 max-w-lg text-3xl font-extrabold tracking-tight text-stone-800 sm:text-4xl">Business management made simple.</h2>
-              <div className="mt-7 grid gap-x-4 gap-y-3 sm:grid-cols-2">
-                {benefits.map((benefit) => <div key={benefit} className="flex items-center gap-2 text-sm text-stone-700"><span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700"><Check size={12} /></span>{benefit}</div>)}
-              </div>
-            </div>
-            <div className="rounded-3xl border border-white bg-white/80 p-6 shadow-xl shadow-amber-900/5 sm:p-8">
-              <span className="text-[10px] font-bold tracking-[.16em] text-stone-400">BUSINESS AT A GLANCE</span>
-              <h3 className="mt-2 text-2xl font-extrabold leading-tight tracking-tight text-stone-800">Clear numbers.<br />Confident decisions.</h3>
-              <div className="mt-6 space-y-3">
-                {[
-                  [TrendingUp, 'Sales tracked', 'Review your daily performance'],
-                  [Package, 'Stock monitored', 'Catch low stock before it runs out'],
-                  [ReceiptText, 'Records organized', 'Keep transactions easy to find'],
-                ].map(([Icon, title, detail]) => <div key={title} className="flex items-center gap-3 rounded-xl border border-stone-100 p-3"><span className="flex size-9 items-center justify-center rounded-lg bg-amber-100 text-bms-primary"><Icon size={18} /></span><span className="flex-1"><b className="block text-sm text-stone-700">{title}</b><small className="text-xs text-stone-400">{detail}</small></span><Check className="text-green-600" size={16} /></div>)}
-              </div>
-              <div className="mt-5 flex items-end gap-2 border-b border-stone-100 pb-1">{[28, 42, 34, 59, 48, 72, 54, 83, 68, 96, 77, 100].map((height, index) => <i key={index} style={{ height: `${height}px` }} className="flex-1 rounded-t bg-gradient-to-t from-amber-400 to-amber-100" />)}</div>
-              <div className="mt-2 flex justify-between text-[9px] text-stone-400"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
-            </div>
-          </div>
-        </section>
-
-        <section className="px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto grid max-w-6xl gap-10 rounded-3xl border border-stone-100 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center lg:gap-16">
-            <div>
-              <span className="text-xs font-bold tracking-[.15em] text-bms-primary">OUR VISION</span>
-              <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-stone-800">Empowering businesses through technology and innovation.</h2>
-            </div>
-            <p className="text-sm leading-7 text-stone-600 sm:text-base">To become a trusted business management solution that empowers small and medium-sized businesses in Rwanda through technology and innovation.</p>
-          </div>
-        </section>
-
-        <section className="relative overflow-hidden bg-stone-900 px-5 py-16 text-center text-white sm:px-8 sm:py-20">
-          <span className="pointer-events-none absolute -left-16 -top-32 size-80 rounded-full border border-white/5" />
-          <span className="pointer-events-none absolute -bottom-48 -right-10 size-96 rounded-full border border-white/5" />
-          <div className="relative mx-auto max-w-2xl">
-            <span className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[.15em] text-amber-300"><Sparkles size={13} /> BSSBMS – BUSINESS MANAGEMENT MADE SIMPLE</span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">Take the Next Step Towards Smarter Business Management.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-stone-300">Spend less time managing paperwork and more time focusing on your business growth.</p>
-            <div className="mt-7 flex flex-wrap justify-center gap-3">
-              <Link to="/login" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-bms-primary px-6 text-sm font-bold text-white transition hover:bg-bms-primary-hover">Get Started Now <ArrowRight size={16} /></Link>
-              <a href="#contact" className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-white/30 px-6 text-sm font-semibold text-white transition hover:bg-white/10">Contact Our Team <ArrowRight size={16} /></a>
-            </div>
-          </div>
-        </section>
-
-        <section id="contact" className="mx-auto grid max-w-6xl gap-10 px-5 py-20 sm:px-8 sm:py-24 md:grid-cols-2 md:items-center">
-          <div>
-            <span className="text-xs font-bold tracking-[.15em] text-bms-primary">CONTACT</span>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-stone-800 sm:text-4xl">Let&apos;s Talk About Your Business</h2>
-            <p className="mt-4 max-w-lg text-sm leading-6 text-stone-600">We are ready to help you simplify your business management.</p>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-4 rounded-xl border border-stone-200 p-4">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-amber-100 text-bms-primary"><ReceiptText size={19} /></span><span className="flex-1"><small className="block text-[10px] font-bold tracking-widest text-stone-400">EMAIL</small><b className="mt-1 block text-sm text-stone-700">Your Business Email</b></span>
-            </div>
-            <div className="flex items-center gap-4 rounded-xl border border-stone-200 p-4">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-amber-100 text-bms-primary"><Users size={19} /></span><span className="flex-1"><small className="block text-[10px] font-bold tracking-widest text-stone-400">PHONE</small><b className="mt-1 block text-sm text-stone-700">Your Business Phone</b></span>
-            </div>
-            <div className="flex items-center gap-4 rounded-xl border border-stone-200 p-4">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-amber-100 text-bms-primary"><ShoppingCart size={19} /></span><span className="flex-1"><small className="block text-[10px] font-bold tracking-widest text-stone-400">LOCATION</small><b className="mt-1 block text-sm text-stone-700">Rwanda</b></span>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t border-stone-200 bg-stone-50 px-5 py-8 sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <a href="#home" className="flex items-center gap-2 font-extrabold tracking-tight text-stone-800"><span className="flex size-9 items-center justify-center rounded-lg bg-bms-primary text-white"><Beer size={18} /></span>BSS<span className="-ml-2 text-bms-primary">BMS</span></a>
-          <p className="text-xs text-stone-500">BSSBMS – Business Management Made Simple. Helping businesses stay organized, informed and prepared for growth.</p>
-          <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-stone-500">
-            {navigation.map(([label, href]) => <a key={label} href={href} className="hover:text-bms-primary">{label}</a>)}
-            <Link to="/login" className="hover:text-bms-primary">Sign In</Link>
-          </nav>
         </div>
-        <div className="mx-auto mt-6 max-w-6xl border-t border-stone-200 pt-5 text-center text-[11px] text-stone-400">© 2026 BSSBMS. All Rights Reserved.</div>
-      </footer>
-    </div>
-  );
+      </section>
+
+      <section id="platform" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-green-700">One practical platform</p><h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">The tools your team needs for the daily work.</h2><p className="mt-4 text-sm leading-6 text-slate-600">Move between core operations while keeping transaction and stock history organized.</p></div><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{modules.map(({icon:Icon,title,text})=><article key={title} className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-green-300 hover:shadow-md"><span className="flex size-10 items-center justify-center rounded-lg bg-green-50 text-green-700"><Icon size={19}/></span><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></article>)}</div></section>
+
+      <section id="how-it-works" className="border-y border-slate-200 bg-[#f4f4f4]"><div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-green-700">A straightforward workflow</p><h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Set up, operate, and review.</h2></div><div className="mt-10 grid gap-4 md:grid-cols-3">{steps.map(([number,title,text])=><article key={number} className="rounded-xl border border-slate-200 bg-white p-6"><span className="text-xs font-bold tracking-widest text-green-700">{number}</span><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></article>)}</div></div></section>
+
+      <section id="about" className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-16 sm:px-8 sm:py-20 md:flex-row md:items-center md:justify-between"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-green-700">Built for clear records</p><h2 className="mt-3 text-3xl font-bold tracking-tight">Make business activity easier to follow.</h2><p className="mt-4 text-sm leading-6 text-slate-600">Use role-based access and connected workflows to help your team record what happens across sales, stock, purchasing and table service.</p></div><Link to="/login" className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#4fd165] px-5 text-sm font-semibold text-white hover:bg-green-600">Sign in to continue <ArrowRight size={16}/></Link></section>
+    </main>
+
+    <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:px-8 md:flex-row md:items-center md:justify-between"><a href="#home" className="flex items-center gap-2 text-sm font-bold"><span className="flex size-8 items-center justify-center rounded-lg bg-[#4fd165] text-white"><Beer size={17}/></span>Umucyo Bar</a><p className="text-xs text-slate-500">Business operations, organized in one workspace.</p><Link to="/login" className="text-sm font-semibold text-green-700 hover:text-green-800">Sign in <span aria-hidden="true">→</span></Link></div></footer>
+  </div>;
 }

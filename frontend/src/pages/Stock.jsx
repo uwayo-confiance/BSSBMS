@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
-import { AlertTriangle, Edit2, RotateCcw, Trash2, ClipboardList, PackageSearch } from 'lucide-react';
+import { AlertTriangle, Edit2, RotateCcw, Trash2, ClipboardList, PackageSearch, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Stock() {
   const [stock, setStock] = useState([]);
+  const [search, setSearch] = useState('');
   const [lowOnly, setLowOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState(null);
@@ -15,6 +16,12 @@ export default function Stock() {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
   const [expiry, setExpiry] = useState([]);
+  const filteredStock = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return stock;
+    return stock.filter((item) => [item.name, item.category_name, item.abbreviation]
+      .some((value) => String(value || '').toLocaleLowerCase().includes(query)));
+  }, [stock, search]);
 
   const loadStock = useCallback(async () => {
     setLoading(true);
@@ -153,6 +160,13 @@ export default function Stock() {
       </section>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="border-b border-slate-200 p-4">
+          <label className="relative block max-w-md">
+            <span className="sr-only">Search stock by product, category, or unit</span>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products, categories, or units" className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm" />
+          </label>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-left">
@@ -170,8 +184,10 @@ export default function Stock() {
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
               ) : stock.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No stock records</td></tr>
+              ) : filteredStock.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No stock matches “{search}”. Try a different search.</td></tr>
               ) : (
-                stock.map((s) => (
+                filteredStock.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
                     <td className="px-4 py-3 text-slate-600">{s.category_name || '—'}</td>
